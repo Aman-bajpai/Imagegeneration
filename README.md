@@ -52,6 +52,6 @@ npm run dev
 
 
 ⚠️ Important Notes & Challenges
-Security Warning: This prototype is built for a 6-hour evaluation and makes API calls directly from the frontend (client-side). This was a necessary trade-off for the time limit and to avoid a backend setup. In a real-world application, all API keys must be hidden on a secure backend server to prevent theft.
+
 
 API Unreliability: A significant challenge during development was the unreliability of the Hugging Face free-tier Inference API. Many models (especially for text generation and image captioning) were frequently "unloaded" and returned 404 Not Found errors. The final implementation was simplified to use the most reliable and available API endpoints to meet the core requirements of the assignment.
