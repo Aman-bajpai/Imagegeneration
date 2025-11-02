@@ -80,37 +80,65 @@ function ImageWorkflow() {
   };
 
   return (
-    <div className="workflow-box">
-      <h3>Image Input Workflow</h3>
-      <input type="file" accept="image/*" onChange={handleFileChange} />
+    <div className="bg-white rounded-lg p-8 shadow-md border border-gray-200">
+      <h3 className="mt-0 border-b border-gray-300 pb-4 text-gray-800 text-2xl font-semibold">
+        Image Input Workflow
+      </h3>
+      <input 
+        type="file" 
+        accept="image/*" 
+        onChange={handleFileChange}
+        className="w-full p-2 border border-gray-300 rounded-lg mb-4 font-sans text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+      />
       
       {previewUrl && (
-        <img src={previewUrl} alt="Selected preview" style={{width: 200, marginBottom: 10}} />
+        <img 
+          src={previewUrl} 
+          alt="Selected preview" 
+          className="w-[200px] mb-4 rounded-lg border border-gray-300"
+        />
       )}
 
-      {/* This button now just shows the "Generate Variation" button */}
-      <button onClick={handleAnalyzeImage} disabled={isLoading || !selectedFile}>
+      <button 
+        onClick={handleAnalyzeImage} 
+        disabled={isLoading || !selectedFile}
+        className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
         Analyze Image
       </button>
 
       {isLoading && <LoadingSpinner />}
-      {error && <p className="error-message">{error}</p>}
+      {error && (
+        <p className="text-red-600 bg-red-50 border border-red-300 px-4 py-3 rounded-lg mt-4">
+          {error}
+        </p>
+      )}
 
-      <div className="results-section">
+      <div className="mt-6">
         {caption && (
           <div>
-            <h4>Analysis Complete. Ready to vary.</h4>
-            <blockquote>{caption}</blockquote>
-            <button onClick={handleGenerateVariation} disabled={isLoading}>
+            <h4 className="text-gray-900 font-semibold mt-5 mb-3">Analysis Complete. Ready to vary.</h4>
+            <blockquote className="bg-blue-50 border-l-4 border-blue-500 my-6 pl-6 pr-6 italic text-gray-700 rounded-lg">
+              {caption}
+            </blockquote>
+            <button 
+              onClick={handleGenerateVariation} 
+              disabled={isLoading}
+              className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
               Generate Variation
             </button>
           </div>
         )}
 
         {variationUrl && (
-          <div>
-            <h4>Generated Variation:</h4>
-            <img src={variationUrl} alt="Generated variation from image" />
+          <div className="mt-5">
+            <h4 className="text-gray-900 font-semibold mt-5 mb-3">Generated Variation:</h4>
+            <img 
+              src={variationUrl} 
+              alt="Generated variation from image" 
+              className="max-w-full h-auto rounded-lg mt-4 border border-gray-300"
+            />
           </div>
         )}
       </div>

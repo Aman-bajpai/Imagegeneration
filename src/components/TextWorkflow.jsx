@@ -86,39 +86,58 @@ function TextWorkflow() {
   };
 
   return (
-    <div className="workflow-box">
-      <h3>Text Input Workflow</h3>
+    <div className="bg-white rounded-lg p-8 shadow-md border border-gray-200">
+      <h3 className="mt-0 border-b border-gray-300 pb-4 text-gray-800 text-2xl font-semibold">
+        Text Input Workflow
+      </h3>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Enter a prompt, e.g., 'a cat sitting on a windowsill'"
+        className="w-full p-4 border border-gray-300 rounded-lg mb-4 font-sans text-sm focus:outline-none focus:border-blue-500 min-h-[120px] resize-y"
       />
-      <button onClick={handleAnalyze} disabled={isLoading || !prompt}>
+      <button 
+        onClick={handleAnalyze} 
+        disabled={isLoading || !prompt}
+        className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
         Analyze Prompt
       </button>
 
       {isLoading && <LoadingSpinner />}
-      {error && <p className="error-message">{error}</p>}
+      {error && (
+        <p className="text-red-600 bg-red-50 border border-red-300 px-4 py-3 rounded-lg mt-4">
+          {error}
+        </p>
+      )}
 
-      <div className="results-section">
+      <div className="mt-6">
         {analysis && (
-          <p>
+          <p className="text-gray-700 mb-4">
             <strong>Tone Analysis:</strong> {analysis[0].label} (Score: {analysis[0].score.toFixed(2)})
           </p>
         )}
         
         {analysisDone && !imageUrl && (
-          <div>
-            <button onClick={handleGenerateImage} disabled={isLoading}>
+          <div className="mt-4">
+            <button 
+              onClick={handleGenerateImage} 
+              disabled={isLoading}
+              className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
               Approve & Generate Image
             </button>
           </div>
         )}
 
         {imageUrl && (
-          <div>
-            <h4>Generated Image:</h4>
-            <img src={imageUrl} alt="Generated from text prompt" />
+          <div className="mt-5">
+            <h4 className="text-gray-900 font-semibold mt-5 mb-3">Generated Image:</h4>
+            <img 
+              src={imageUrl} 
+              alt="Generated from text prompt" 
+              className="max-w-full h-auto rounded-lg mt-4 border border-gray-300"
+            />
           </div>
         )}
       </div>
