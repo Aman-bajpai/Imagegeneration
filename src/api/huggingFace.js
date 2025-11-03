@@ -3,7 +3,7 @@
 
 export async function queryHF(model, data) {
   const apiToken = import.meta.env.VITE_HF_API_TOKEN;
-  const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+  const apiUrl = `https://router.huggingface.co/hf-inference/models/${model}`;
 
   // Prepare headers and body
   const headers = {
