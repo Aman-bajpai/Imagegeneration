@@ -1,143 +1,193 @@
-import React, { useState } from 'react';
-import LoadingSpinner from './LoadingSpinner';
+import React, { useState } from "react";
+import LoadingSpinner from "./LoadingSpinner";
+
+// Convert image to Base64 (without prefix)
+const toBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = (error) => reject(error);
+  });
 
 function ImageWorkflow() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [caption, setCaption] = useState(""); // We will set this manually
+  const [caption, setCaption] = useState("");
   const [variationUrl, setVariationUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const stabilityApiKey = import.meta.env.VITE_STABILITY_API_TOKEN;
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-      setCaption(""); // Reset old results
+      setCaption("");
       setVariationUrl("");
+      setError(null);
     }
   };
 
-  // This function is now just for show. It "analyzes" by setting a fake caption.
-  const handleAnalyzeImage = () => {
+  // STEP 1 — Analyze the uploaded image using Gemini 2.5 Flash
+  const handleAnalyzeImage = async () => {
     if (!selectedFile) return;
+    setIsLoading(true);
     setError(null);
-    setCaption("A new variation of the uploaded image."); // Set a simple prompt
+    setCaption("");
+
+    try {
+      const base64Image = await toBase64(selectedFile);
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: "Describe this image in one detailed, creative sentence for an image generator." },
+                  {
+                    inline_data: {
+                      mime_type: selectedFile.type,
+                      data: base64Image,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(`Gemini 2.5 Flash failed: ${err.error.message}`);
+      }
+
+      const data = await response.json();
+      const description = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      setCaption(description);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // STEP 2 — Generate variation using Stability AI
   const handleGenerateVariation = async () => {
-    if (!caption || !selectedFile) return;
-
+    if (!caption) return;
     setIsLoading(true);
     setError(null);
     setVariationUrl("");
 
-    const stabilityApiKey = import.meta.env.VITE_STABILITY_API_TOKEN;
-    const engineId = "stable-diffusion-xl-1024-v1-0"; // Use the XL engine
-
     try {
-      // 1. Create FormData to send the image file
-      const formData = new FormData();
-      formData.append('init_image', selectedFile); // Append the image
-      formData.append('init_image_mode', "IMAGE_STRENGTH");
-      formData.append('image_strength', 0.35); // How much to change the image (0.0 = total change, 1.0 = no change)
-      formData.append('text_prompts[0][text]', caption); // Use the caption as the prompt
-      formData.append('text_prompts[0][weight]', 1);
-      formData.append('cfg_scale', 7);
-      formData.append('samples', 1);
-      formData.append('steps', 30);
+      const engineId = "stable-diffusion-xl-1024-v1-0"; // best quality model
 
-      // 2. Call the Stability.ai Image-to-Image API
       const response = await fetch(
-        `https://api.stability.ai/v1/generation/${engineId}/image-to-image`,
+        `https://api.stability.ai/v1/generation/${engineId}/text-to-image`,
         {
           method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Accept: "application/json",
             Authorization: `Bearer ${stabilityApiKey}`,
-            // Do NOT set "Content-Type": "application/json",
-            // The browser will automatically set it to "multipart/form-data"
           },
-          body: formData, // Send the form data
+          body: JSON.stringify({
+            text_prompts: [{ text: caption }],
+            cfg_scale: 7,
+            height: 1024,
+            width: 1024,
+            steps: 30,
+            samples: 1,
+          }),
         }
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Stability.ai request failed: ${response.status} ${errorText}`);
+        throw new Error(`Stability AI failed: ${response.status} ${errorText}`);
       }
 
-      const responseJSON = await response.json();
-      const base64Image = responseJSON.artifacts[0].base64;
-      setVariationUrl(`data:image/png;base64,${base64Image}`);
+      const result = await response.json();
+      const base64Image = result?.artifacts?.[0]?.base64;
+      if (!base64Image) throw new Error("No image data returned from Stability AI.");
 
+      setVariationUrl(`data:image/png;base64,${base64Image}`);
     } catch (err) {
       console.error(err);
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
-    <div className="bg-white rounded-lg p-8 shadow-md border border-gray-200">
-      <h3 className="mt-0 border-b border-gray-300 pb-4 text-gray-800 text-2xl font-semibold">
-        Image Input Workflow
-      </h3>
-      <input 
-        type="file" 
-        accept="image/*" 
-        onChange={handleFileChange}
-        className="w-full p-2 border border-gray-300 rounded-lg mb-4 font-sans text-sm focus:outline-none focus:border-blue-500 cursor-pointer"
-      />
-      
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+      <h3 className="text-2xl font-bold mb-6 text-gray-800">🖼️ Image Workflow (Gemini 2.5 Flash + Stability AI)</h3>
+
+      <div className="mb-6">
+        <label className="block mb-2">
+          <span className="sr-only">Choose image</span>
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={handleFileChange}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+          />
+        </label>
+      </div>
+
       {previewUrl && (
-        <img 
-          src={previewUrl} 
-          alt="Selected preview" 
-          className="w-[200px] mb-4 rounded-lg border border-gray-300"
+        <img
+          src={previewUrl}
+          alt="Preview"
+          className="w-48 h-48 object-cover rounded-lg mb-4 border-2 border-gray-200"
         />
       )}
 
       <button 
         onClick={handleAnalyzeImage} 
         disabled={isLoading || !selectedFile}
-        className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Analyze Image
+        Analyze Image (Gemini 2.5 Flash)
       </button>
 
-      {isLoading && <LoadingSpinner />}
-      {error && (
-        <p className="text-red-600 bg-red-50 border border-red-300 px-4 py-3 rounded-lg mt-4">
-          {error}
-        </p>
-      )}
+      {isLoading && <div className="my-4"><LoadingSpinner /></div>}
+      {error && <p className="p-4 mb-4 text-red-700 bg-red-100 rounded-md">{error}</p>}
 
-      <div className="mt-6">
+      <div className="space-y-6">
         {caption && (
-          <div>
-            <h4 className="text-gray-900 font-semibold mt-5 mb-3">Analysis Complete. Ready to vary.</h4>
-            <blockquote className="bg-blue-50 border-l-4 border-blue-500 my-6 pl-6 pr-6 italic text-gray-700 rounded-lg">
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <h4 className="text-xl font-semibold mb-3 text-gray-800">🧠 Generated Caption:</h4>
+            <blockquote className="italic text-gray-700 border-l-4 border-blue-500 pl-4 mb-4">
               {caption}
             </blockquote>
             <button 
               onClick={handleGenerateVariation} 
               disabled={isLoading}
-              className="bg-blue-500 text-white border-none px-7 py-3 rounded-lg cursor-pointer text-base font-semibold hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Generate Variation
+              Generate Variation (Stability AI)
             </button>
           </div>
         )}
 
         {variationUrl && (
-          <div className="mt-5">
-            <h4 className="text-gray-900 font-semibold mt-5 mb-3">Generated Variation:</h4>
-            <img 
-              src={variationUrl} 
-              alt="Generated variation from image" 
-              className="max-w-full h-auto rounded-lg mt-4 border border-gray-300"
+          <div className="bg-gray-50 p-6 rounded-lg">
+            <h4 className="text-xl font-semibold mb-3 text-gray-800">🎨 Generated Variation:</h4>
+            <img
+              src={variationUrl}
+              alt="Generated variation"
+              className="w-full rounded-lg shadow-md"
             />
           </div>
         )}
